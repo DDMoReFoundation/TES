@@ -1,0 +1,17 @@
+This directory contains utility scripts for MIF developers. The scripts are meant to facilitate common development tasks involved in setting up, building, testing and verification of updates to MIF and its modules.
+
+Setup Scripts:
+* create-mif-mysql-db.sh - sets up mysql - mif database and user
+* create-dev-directory.sh - sets up 'dev' directory in MIF_ROOT
+* create-dev-mif-setup-files.sh - prepares mif-installer properties files valid to development environment
+* create-dev-mif-install-dir.sh - prepares MIF Developemnt Setup installation directory (i.e. so you can deploy MIF from within Eclipse IDE)
+* create-mif-tomcat-plugin-metadata.sh - creates MIFServer Eclipse tomcat plugin metadata file
+* encrypt-dev-password.sh - builds mif client and encrypts password
+
+Utility Scripts:
+* build-and-deploy.sh - a script automating a task of building and deploying MIF using mif-installer.  
+* which-mif-conf-dir-i-use.sh - returns information on which MIF setup is in use (development or production)
+* switch-mif-conf-dir-to.sh - switches between MIF produciton and development setup
+* print-mif-setup-summary.sh - prints a summary of current MIF setup
+* bump-up-version.sh - updates version in pom files - useful untill mvn release plugin is used
+

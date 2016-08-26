@@ -1,0 +1,376 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  
+    <parent>
+        <artifactId>MangoInteroperabilityFramework</artifactId>
+        <groupId>com.mango</groupId>
+        <version>3.0.19-ddmore</version>
+    </parent>
+  
+    <artifactId>mif-module-parent</artifactId>
+    <name>mif-module-parent</name>
+    <url>http://www.mango-solutions.com</url>
+    <packaging>pom</packaging>
+  
+    <properties>
+        <!-- default build properties location can be overridden by profiles -->
+        <mif.build.properties.file.location>${basedir}/../build-env.properties</mif.build.properties.file.location>
+        <project.build.runtime>${basedir}/target/runtime</project.build.runtime>
+        <mif.runtime>${basedir}/../runtime</mif.runtime>
+        
+        <skip.integration.tests>false</skip.integration.tests>
+    </properties>
+    
+    <profiles>
+        <profile>
+            <!-- This is the profile run by cis  -->
+            <id>jenkins</id>
+            <properties>
+                <mif.build.properties.file.location>${basedir}/../config/cis/build-env.properties</mif.build.properties.file.location>
+            </properties>
+        </profile>
+        
+        <profile>
+            <id>obfuscate</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                   <plugin>
+                        <groupId>com.github.wvengen</groupId>
+                        <artifactId>proguard-maven-plugin</artifactId>
+                        <configuration>
+                            <options>
+                                <option>-dontshrink</option>
+                                <option>-dontoptimize</option>
+                                <option>-keep public class * {public protected *;}</option>
+                                <option>-keepattributes **</option>
+                                <option>-keepclassmembers class * {*;}</option>
+                                <option>-keepclassmembers enum * {*;}</option>
+                                <option>-keepparameternames</option>
+                                <option>-renamesourcefileattribute SourceFile</option>
+                                <option>-keepclassmembernames class * {*;}</option>
+                                <option>-keepclasseswithmembernames class * {*;}</option>
+                            </options>
+                        </configuration>
+                    </plugin>
+                    
+                    <plugin>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>chmod-bash-obfuscator</id>
+                                <phase>initialize</phase>
+                                <configuration>
+                                    <tasks>
+                                        <echo message="Chmod obfuscation scripts..." />
+                                        <chmod file="${bash.obfuscator.exec}" perm="755" />
+                                        <chmod dir="${python.obfuscator.path}" perm="755"
+                                            includes="**/*" />
+                                        <chmod file="${scripts.obfuscation.report.generator}"
+                                            perm="755" />
+                                    </tasks>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+
+                            <execution>
+                                <id>generate-obfuscation-report</id>
+                                <phase>package</phase>
+                                <configuration>
+                                    <tasks>
+                                        <echo message="Producing obfuscation report." />
+                                        <exec executable="${scripts.obfuscation.report.generator}"
+                                            output="${project.build.directory}/scripts-obfuscation-report.html">
+                                            <arg value="${basedir}/src/main/resources/runtime/scripts" />
+                                            <arg value="${project.build.runtime}/scripts" />
+                                        </exec>
+                                    </tasks>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+
+                            <execution>
+                                <id>obfuscate scripts</id>
+                                <!-- obfuscate before the tests are run -->
+                                <phase>process-test-classes</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <tasks>
+                                        <apply executable="${process.scripts.exec}">
+                                            <srcfile />
+                                            <fileset dir="${project.build.runtime}/scripts">
+                                                <patternset>
+                                                    <include name="**/*.sh" />
+                                                </patternset>
+                                            </fileset>
+                                            <redirector>
+                                                <outputmapper id="out" type="glob" from="*.sh"
+                                                    to="${project.build.runtime}/scripts/*.sh" />
+                                            </redirector>
+                                        </apply>
+                                        <echo>obfuscate bash scripts</echo>
+                                        <apply executable="${bash.obfuscator.exec}">
+                                            <arg value="-i" />
+                                            <arg value="-c" />
+                                            <arg value="4" />
+                                            <arg value="-d" />
+                                            <arg value="3" />
+                                            <arg value="-e" />
+                                            <arg value="1-9" />
+                                            <arg value="-f" />
+                                            <srcfile />
+                                            <fileset dir="${project.build.runtime}/scripts">
+                                                <patternset>
+                                                    <include name="**/*.sh" />
+                                                </patternset>
+                                            </fileset>
+                                            <redirector>
+                                                <outputmapper id="out" type="glob" from="*.sh"
+                                                    to="${project.build.runtime}/scripts/*.sh" />
+                                            </redirector>
+                                        </apply>
+                                        <echo>obfuscate python scripts</echo>
+                                        <apply executable="${python.obfuscator.exec}" dest="${project.build.runtime}/scripts">
+                                            <srcfile />
+                                            <targetfile />
+                                            <fileset dir="${project.build.runtime}/scripts">
+                                                <patternset>
+                                                    <include name="**/*.py" />
+                                                    <exclude name="**/*Test*" />
+                                                </patternset>
+                                            </fileset>
+                                            <!-- doesn't support obfuscating in place so create obfuscated 
+                                                versions next to originals -->
+                                            <mapper type="glob" from="*.py" to="*.py_obf" />
+                                        </apply>
+                                        <!-- replace the original files with the obfuscated ones -->
+                                        <move todir="${project.build.runtime}/scripts"
+                                            includeemptydirs="false" overwrite="true">
+                                            <fileset dir="${project.build.runtime}/scripts" />
+                                            <mapper type="glob" from="*.py_obf" to="*.py" />
+                                        </move>
+                                    </tasks>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+        <profile>
+            <id>eclipse</id>
+            <dependencies>
+                <dependency>
+                      <groupId>com.mango</groupId>
+                      <artifactId>MIFServer</artifactId>
+                      <version>${project.parent.version}</version>
+                      <type>test-jar</type>
+                      <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+    
+    <dependencies>
+        <dependency>
+            <groupId>com.mango</groupId>
+            <artifactId>MIFClient</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mango</groupId>
+            <artifactId>MIFServer</artifactId>
+            <version>${project.parent.version}</version>
+            <classifier>exe</classifier>
+        </dependency>
+        <dependency>
+              <groupId>com.mango</groupId>
+              <artifactId>MIFServer</artifactId>
+              <version>${project.parent.version}</version>
+              <type>test-jar</type>
+              <scope>test</scope>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <finalName>${project.artifactId}</finalName>
+        <pluginManagement>
+        <plugins>
+            <plugin>
+                <inherited>true</inherited>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>properties-maven-plugin</artifactId>
+                <version>1.0-alpha-2</version>
+                <executions>
+                    <execution>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>read-project-properties</goal>
+                        </goals>
+                        <configuration>
+                            <files>
+                                <file>${mif.build.properties.file.location}</file>
+                            </files>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <tasks>
+                                <echo>Build Templates directory location:
+                                    ${project.build.runtime}</echo>
+                                <echo>Using properties file:
+                                    ${mif.build.properties.file.location}</echo>
+                            </tasks>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>chmod-scripts</id>
+                        <phase>process-test-classes</phase>
+                        <configuration>
+                            <tasks>
+                                <echo message="Chmod runtime scripts..." />
+                                <chmod perm="755">
+                                    <fileset dir="${project.build.directory}">
+                                        <include name="**/*.sh" />
+                                        <include name="**/*.py" />
+                                    </fileset>
+                                </chmod>
+                            </tasks>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>2.4</version>
+
+                <executions>
+                    <execution>
+                        <id>copy-runtime</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.runtime}</outputDirectory>
+                            <includeEmptyDirs>true</includeEmptyDirs>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/resources/runtime</directory>
+                                </resource>
+                            </resources>
+                            <encoding>UTF-8</encoding>
+                        </configuration>
+                    </execution>
+                    
+                    <execution>
+                        <id>copy-install</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>target/install</outputDirectory>
+                            <includeEmptyDirs>true</includeEmptyDirs>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/resources/install</directory>
+                                </resource>
+                            </resources>
+                            <encoding>UTF-8</encoding>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <inherited>true</inherited>
+                <executions>
+                    <execution>
+                        <id>create-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>attach-tests</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <mif.build.properties.file.location>${mif.build.properties.file.location}</mif.build.properties.file.location>
+                        <mif.runtime.dir>${mif.runtime}</mif.runtime.dir>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <mif.build.properties.file.location>${mif.build.properties.file.location}</mif.build.properties.file.location>
+                        <mif.runtime.dir>${mif.runtime}</mif.runtime.dir>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptors>
+                        <descriptor>${basedir}/src/main/assembly/mif-plugin.xml</descriptor>
+                    </descriptors>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id> 
+                        <phase>package</phase>
+                        <inherited>true</inherited>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+        </pluginManagement>
+    </build>
+</project>

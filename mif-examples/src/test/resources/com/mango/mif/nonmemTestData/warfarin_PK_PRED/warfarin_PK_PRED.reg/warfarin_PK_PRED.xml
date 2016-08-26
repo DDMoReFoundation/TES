@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="ASCII"?>
+<!DOCTYPE nm:output SYSTEM "output.dtd">
+<output>
+<start_datetime>2013-02-19T07:40:58.296</start_datetime>
+<control_stream><![CDATA[
+
+$PROB WARFARIN PK
+;O'REILLY RA, AGGELER PM, LEONG LS. STUDIES OF THE COUMARIN ANTICOAGULANT
+;DRUGS: THE PHARMACODYNAMICS OF WARFARIN IN MAN.
+;JOURNAL OF CLINICAL INVESTIGATION 1963;42(10):1542-1551
+
+;O'REILLY RA, AGGELER PM. STUDIES ON COUMARIN ANTICOAGULANT DRUGS
+;INITIATION OF WARFARIN THERAPY WITHOUT A LOADING DOSE.
+;CIRCULATION 1968;38:169-177
+
+$INPUT ID TIME WT AGE SEX AMT DVID DV MDV
+$DATA ..\warfarin_conc_pca.csv IGNORE=#
+IGNORE (DVID.EQ.2) ; IGNORE PCA OBSERVATIONS
+
+$EST METHOD=COND INTER
+MAX=9990 SIG=3 NOABORT ;PRINT=1
+$COV
+
+$THETA
+(0.001,0.1) ; POP_CL L/H/70KG
+(0.001,8)   ; POP_V  L/70KG
+(0.001,2) ; POP_KA H-1
+(0.001,1) ; POP_TLAG H
+
+$OMEGA BLOCK(2)
+0.1 ; PPV_CL
+0.01 0.1 ; PPV_V
+$OMEGA
+0.1 ; PPV_KA
+0.1 ; PPV_TLAG
+
+$SIGMA
+0.01 ; RUV_PROP
+0.05 ; RUV_ADD MG/L
+
+
+$PRED
+   IF (AMT.GT.0) DOSE=AMT
+   ; COVARIATE MODEL
+   GRPCL=THETA(1)*(WT/70)**0.75
+   GRPV=THETA(2)*WT/70
+   GRPKA=THETA(3)
+   GRPLG=THETA(4)
+
+   ; INDIVIDUAL PARAMETERS
+   CL=GRPCL*EXP(ETA(1))
+   V=GRPV*EXP(ETA(2))
+   KA=GRPKA*EXP(ETA(3))
+   TLAG=GRPLG*EXP(ETA(4))
+
+   IF (TIME.LE.TLAG) THEN
+      CONC=0
+   ELSE
+      TNOW=TIME-TLAG
+      K=CL/V
+      CONC=DOSE*KA/(V*(KA-K))*(EXP(-K*TNOW) - EXP(-KA*TNOW))
+   ENDIF
+   Y=CONC*(1+ERR(1))+ERR(2)
+
+$TABLE ID TIME WT SEX AGE ; COVARIATES
+CL V KA TLAG ; EBE ESTIMATES
+DVID Y ; PREDICTIONS
+ONEHEADER NOPRINT FILE=warfarin_pk_pred.fit
+
+
+
+
+]]></control_stream>
+<nmtran><![CDATA[
+
+ WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
+
+ (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
+
+ (WARNING  3) THERE MAY BE AN ERROR IN THE ABBREVIATED CODE. THE FOLLOWING
+ ONE OR MORE RANDOM VARIABLES ARE DEFINED WITH "IF" STATEMENTS THAT DO NOT
+ PROVIDE DEFINITIONS FOR BOTH THE "THEN" AND "ELSE" CASES. IF ALL
+ CONDITIONS FAIL, THE VALUES OF THESE VARIABLES WILL BE ZERO.
+
+   TNOW K
+
+ CREATING MUMODEL ROUTINE...
+]]></nmtran>
+<nonmem version='7.3 (Beta Version a6.5)'>
+<license_information><![CDATA[
+License Registered to: University of Auckland - School of Medicine
+Expiration Date:    14 NOV 2013
+Current Date:       19 FEB 2013
+Days until program expires : 265
+]]></license_information>
+<program_information><![CDATA[
+1NONLINEAR MIXED EFFECTS MODEL PROGRAM (NONMEM) VERSION 7.3 (Beta Version a6.5)
+ ORIGINALLY DEVELOPED BY STUART BEAL, LEWIS SHEINER, AND ALISON BOECKMANN
+ CURRENT DEVELOPERS ARE ROBERT BAUER, ICON DEVELOPMENT SOLUTIONS,
+ AND ALISON BOECKMANN. IMPLEMENTATION, EFFICIENCY, AND STANDARDIZATION
+ PERFORMED BY NOUS INFOSYSTEMS.
+]]></program_information>
+<problem number='1' subproblem='0' superproblem1='0' iteration1='0' superproblem2='0' iteration2='0'>
+<problem_title>WARFARIN PK</problem_title>
+<problem_information><![CDATA[
+
+ PROBLEM NO.:         1
+ WARFARIN PK
+0DATA CHECKOUT RUN:              NO
+ DATA SET LOCATED ON UNIT NO.:    2
+ THIS UNIT TO BE REWOUND:        NO
+ NO. OF DATA RECS IN DATA SET:      288
+ NO. OF DATA ITEMS IN DATA SET:   9
+ ID DATA ITEM IS DATA ITEM NO.:   1
+ DEP VARIABLE IS DATA ITEM NO.:   8
+ MDV DATA ITEM IS DATA ITEM NO.:  9
+0LABELS FOR DATA ITEMS:
+ ID TIME WT AGE SEX AMT DVID DV MDV
+0(NONBLANK) LABELS FOR PRED-DEFINED ITEMS:
+ CL V KA TLAG Y
+0FORMAT FOR DATA:
+ (9E5.0)
+
+ TOT. NO. OF OBS RECS:      250
+ TOT. NO. OF INDIVIDUALS:     32
+0LENGTH OF THETA:   4
+0DEFAULT THETA BOUNDARY TEST OMITTED:    NO
+0OMEGA HAS BLOCK FORM:
+  1
+  1  1
+  0  0  2
+  0  0  0  3
+0DEFAULT OMEGA BOUNDARY TEST OMITTED:    NO
+0SIGMA HAS SIMPLE DIAGONAL FORM WITH DIMENSION:   2
+0DEFAULT SIGMA BOUNDARY TEST OMITTED:    NO
+0INITIAL ESTIMATE OF THETA:
+ LOWER BOUND    INITIAL EST    UPPER BOUND
+  0.1000E-02     0.1000E+00     0.1000E+07
+  0.1000E-02     0.8000E+01     0.1000E+07
+  0.1000E-02     0.2000E+01     0.1000E+07
+  0.1000E-02     0.1000E+01     0.1000E+07
+0INITIAL ESTIMATE OF OMEGA:
+ BLOCK SET NO.   BLOCK                                                                    FIXED
+        1                                                                                   NO
+                  0.1000E+00
+                  0.1000E-01   0.1000E+00
+        2                                                                                   NO
+                  0.1000E+00
+        3                                                                                   NO
+                  0.1000E+00
+0INITIAL ESTIMATE OF SIGMA:
+ 0.1000E-01
+ 0.0000E+00   0.5000E-01
+0COVARIANCE STEP OMITTED:        NO
+ EIGENVLS. PRINTED:              NO
+ SPECIAL COMPUTATION:            NO
+ COMPRESSED FORMAT:              NO
+ SIGDIGITS ETAHAT (SIGLO):               -1
+ SIGDIGITS GRADIENTS (SIGL):             -1
+ RELATIVE TOLERANCE (TOL):               -1
+ ABSOLUTE TOLERANCE-ADVAN13 ONLY (ATOL): -1
+ EXCLUDE COV FOR FOCE (NOFCOV):           NO
+ RESUME COV ANALYSIS (RESUME):            NO
+0TABLES STEP OMITTED:    NO
+ NO. OF TABLES:           1
+ SEED NUMBER (SEED):    11456
+ RANMETHOD:
+ MC SAMPLES (ESEED):    300
+ WRES SQUARE ROOT TYPE:            EIGENVALUE
+0-- TABLE   1 --
+ PRINTED:                NO
+ FILE TO BE FORWARDED:   NO
+ FORMAT:                S1PE11.4
+ LFORMAT:
+ RFORMAT:
+0USER-CHOSEN ITEMS:
+ ID TIME WT SEX AGE CL V KA TLAG DVID Y
+
+ THE FOLLOWING LABELS ARE EQUIVALENT
+ PRED=PREDI
+ RES=RESI
+ WRES=WRESI
+ IWRS=IWRESI=
+]]></problem_information>
+<estimation number='1' type='0'>
+<table_series>1</table_series>
+<estimation_method>focei</estimation_method>
+<estimation_title>First Order Conditional Estimation with Interaction</estimation_title>
+<monitor>
+<obj iteration='0'>1186.53344047108</obj>
+<obj iteration='37'>250.627479350947</obj>
+</monitor>
+<termination_status>0</termination_status>
+<termination_information><![CDATA[
+0MINIMIZATION SUCCESSFUL
+ NO. OF FUNCTION EVALUATIONS USED:      414
+ NO. OF SIG. DIGITS IN FINAL EST.:  3.0
+0PARAMETER ESTIMATE IS NEAR ITS BOUNDARY
+ THIS MUST BE ADDRESSED BEFORE THE COVARIANCE STEP CAN BE IMPLEMENTED
+]]></termination_information>
+<etabar>
+<row rname='SUBPOP1'>
+<col cname='ETA1'>3.025780567231856E-004</col>
+<col cname='ETA2'>-5.237333668868437E-003</col>
+<col cname='ETA3'>-1.668885309549599E-002</col>
+<col cname='ETA4'>7.795520852017930E-003</col>
+</row>
+</etabar>
+<etabarse>
+<row rname='SUBPOP1'>
+<col cname='ETA1'>4.589173366421008E-002</col>
+<col cname='ETA2'>2.258454512001544E-002</col>
+<col cname='ETA3'>7.115355032001193E-002</col>
+<col cname='ETA4'>2.431990431189372E-002</col>
+</row>
+</etabarse>
+<etabarpval>
+<row rname='SUBPOP1'>
+<col cname='ETA1'>0.994739310951072</col>
+<col cname='ETA2'>0.816616537000784</col>
+<col cname='ETA3'>0.814560422255059</col>
+<col cname='ETA4'>0.748558557828801</col>
+</row>
+</etabarpval>
+<etashrink>
+<row rname='SUBPOP1'>
+<col cname='ETA1'>1.57628709458120</col>
+<col cname='ETA2'>9.86956603844598</col>
+<col cname='ETA3'>46.5088547746593</col>
+<col cname='ETA4'>59.2600469966884</col>
+</row>
+</etashrink>
+<epsshrink>
+<row rname='SUBPOP1'>
+<col cname='EPS1'>14.1991307028406</col>
+<col cname='EPS2'>14.8883054721981</col>
+</row>
+</epsshrink>
+<estimation_elapsed_time>1.48</estimation_elapsed_time>
+<final_objective_function_text>MINIMUM VALUE OF OBJECTIVE FUNCTION</final_objective_function_text>
+<final_objective_function>250.627479350947</final_objective_function>
+<theta>
+<val name='1'>0.135103394806737</val>
+<val name='2'>7.99114547878118</val>
+<val name='3'>1.28382920231069</val>
+<val name='4'>0.864987739880887</val>
+</theta>
+<omega>
+<row rname='1'>
+<col cname='1'>7.181376618020480E-002</col>
+</row>
+<row rname='2'>
+<col cname='1'>5.232972198267837E-003</col>
+<col cname='2'>2.074044327492858E-002</col>
+</row>
+<row rname='3'>
+<col cname='1'>0.000000000000000E+000</col>
+<col cname='2'>0.000000000000000E+000</col>
+<col cname='3'>0.584477261730768</col>
+</row>
+<row rname='4'>
+<col cname='1'>0.000000000000000E+000</col>
+<col cname='2'>0.000000000000000E+000</col>
+<col cname='3'>0.000000000000000E+000</col>
+<col cname='4'>0.117712054332026</col>
+</row>
+</omega>
+<sigma>
+<row rname='1'>
+<col cname='1'>1.000000000000000E-006</col>
+</row>
+<row rname='2'>
+<col cname='1'>0.000000000000000E+000</col>
+<col cname='2'>0.447911653435027</col>
+</row>
+</sigma>
+<omegac>
+<row rname='1'>
+<col cname='1'>0.267980906372459</col>
+</row>
+<row rname='2'>
+<col cname='1'>0.135592465828201</col>
+<col cname='2'>0.144015427211562</col>
+</row>
+<row rname='3'>
+<col cname='1'>0.000000000000000E+000</col>
+<col cname='2'>0.000000000000000E+000</col>
+<col cname='3'>0.764511125969249</col>
+</row>
+<row rname='4'>
+<col cname='1'>0.000000000000000E+000</col>
+<col cname='2'>0.000000000000000E+000</col>
+<col cname='3'>0.000000000000000E+000</col>
+<col cname='4'>0.343091903623542</col>
+</row>
+</omegac>
+<sigmac>
+<row rname='1'>
+<col cname='1'>1.000000000000000E-003</col>
+</row>
+<row rname='2'>
+<col cname='1'>0.000000000000000E+000</col>
+<col cname='2'>0.669262021509533</col>
+</row>
+</sigmac>
+</estimation>
+</problem>
+</nonmem>
+<stop_datetime>2013-02-19T07:40:59.890</stop_datetime>
+</output>

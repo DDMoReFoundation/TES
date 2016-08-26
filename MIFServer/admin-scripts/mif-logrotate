@@ -1,0 +1,18 @@
+/var/log/mif/shell.log
+/var/log/mif/shell-metrics.log
+{
+    missingok
+    notifempty
+    daily
+    create 666 root root
+    compress
+    rotate 10
+    dateext
+    nomail
+    prerotate
+        chmod 644 $1
+    endscript
+    postrotate
+        chmod 666 $1
+    endscript
+}

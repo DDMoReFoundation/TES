@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="ASCII"?>
+<!DOCTYPE nm:output SYSTEM "output.dtd">
+<nm:output
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://namespaces.oreilly.com/xmlnut/address output.xsd"
+xmlns:nm="http://namespaces.oreilly.com/xmlnut/address"
+>
+<nm:start_datetime>2014-03-14T15:22:13.853</nm:start_datetime>
+<nm:control_stream><![CDATA[
+
+$PROB WARFARIN PK
+;O'Reilly RA, Aggeler PM, Leong LS. Studies of the coumarin anticoagulant
+;drugs: The pharmacodynamics of warfarin in man.
+;Journal of Clinical Investigation 1963;42(10):1542-1551
+
+;O'Reilly RA, Aggeler PM. Studies on coumarin anticoagulant drugs
+;Initiation of warfarin therapy without a loading dose.
+;Circulation 1968;38:169-177
+
+$INPUT ID TIME WT AGE SEX AMT DVID DV MDV
+$DATA example3.csv IGNORE=#
+IGNORE (DVID.EQ.2) ; ignore PCA observations
+
+$EST METHOD=COND INTER
+MAX=9990 SIG=3 NOABORT ;PRINT=1
+$COV
+
+$THETA
+(0.001,0.1) ; POP_CL L/h/70kg
+(0.001,8)   ; POP_V  L/70kg
+(0.001,2) ; POP_KA h-1
+(0.001,1) ; POP_TLAG h
+
+$OMEGA BLOCK(2)
+0.1 ; PPV_CL
+0.01 0.1 ; PPV_V
+$OMEGA
+0.1 ; PPV_KA
+0.1 ; PPV_TLAG
+
+$SIGMA
+0.01 ; RUV_PROP
+0.05 ; RUV_ADD mg/L
+
+
+$PRED
+   IF (AMT.GT.0) DOSE=AMT
+   ; Covariate model
+   GRPCL=THETA(1)*(WT/70)**0.75
+   GRPV=THETA(2)*WT/70
+   GRPKA=THETA(3)
+   GRPLG=THETA(4)
+
+   ; Individual parameters
+   CL=GRPCL*EXP(ETA(1))
+   V=GRPV*EXP(ETA(2))
+   KA=GRPKA*EXP(ETA(3))
+   TLAG=GRPLG*EXP(ETA(4))
+
+   IF (TIME.LE.TLAG) THEN
+      CONC=0
+   ELSE
+      TNOW=TIME-TLAG
+      K=CL/V
+      CONC=DOSE*KA/(V*(KA-K))*(EXP(-K*TNOW) - EXP(-KA*TNOW))
+   ENDIF
+   Y=CONC*(1+ERR(1))+ERR(2)
+
+$TABLE ID TIME WT SEX AGE ; covariates
+CL V KA TLAG ; EBE estimates
+DVID Y ; predictions
+ONEHEADER NOPRINT FILE=warf.fit
+
+
+
+
+]]></nm:control_stream>
+<nm:nmtran><![CDATA[
+
+ WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
+
+ (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
+
+ (WARNING  3) THERE MAY BE AN ERROR IN THE ABBREVIATED CODE. THE FOLLOWING
+ ONE OR MORE RANDOM VARIABLES ARE DEFINED WITH "IF" STATEMENTS THAT DO NOT
+ PROVIDE DEFINITIONS FOR BOTH THE "THEN" AND "ELSE" CASES. IF ALL
+ CONDITIONS FAIL, THE VALUES OF THESE VARIABLES WILL BE ZERO.
+
+   TNOW K
+
+ CREATING MUMODEL ROUTINE...
+]]></nm:nmtran>
+<nm:nonmem nm:version='7.2.0'>
+<nm:license_information><![CDATA[
+License Registered to: Mango Business Solutions Ltd.
+Expiration Date:    14 OCT 2014
+Current Date:       14 MAR 2014
+Days until program expires : 210
+]]></nm:license_information>
+<nm:program_information><![CDATA[
+1NONLINEAR MIXED EFFECTS MODEL PROGRAM (NONMEM) VERSION 7.2.0
+ ORIGINALLY DEVELOPED BY STUART BEAL, LEWIS SHEINER, AND ALISON BOECKMANN
+ CURRENT DEVELOPERS ARE ROBERT BAUER, ICON DEVELOPMENT SOLUTIONS,
+ AND ALISON BOECKMANN. IMPLEMENTATION, EFFICIENCY, AND STANDARDIZATION
+ PERFORMED BY NOUS INFOSYSTEMS.
+]]></nm:program_information>
+<nm:problem nm:number='1' nm:subproblem='0' nm:superproblem1='0' nm:iteration1='0' nm:superproblem2='0' nm:iteration2='0'>
+<nm:problem_title>WARFARIN PK</nm:problem_title>
+<nm:problem_information><![CDATA[
+
+ PROBLEM NO.:         1
+ WARFARIN PK
+0DATA CHECKOUT RUN:              NO
+ DATA SET LOCATED ON UNIT NO.:    2
+ THIS UNIT TO BE REWOUND:        NO
+ NO. OF DATA RECS IN DATA SET:      288
+ NO. OF DATA ITEMS IN DATA SET:   9
+ ID DATA ITEM IS DATA ITEM NO.:   1
+ DEP VARIABLE IS DATA ITEM NO.:   8
+ MDV DATA ITEM IS DATA ITEM NO.:  9
+0LABELS FOR DATA ITEMS:
+ ID TIME WT AGE SEX AMT DVID DV MDV
+0(NONBLANK) LABELS FOR PRED-DEFINED ITEMS:
+ CL V KA TLAG Y
+0FORMAT FOR DATA:
+ (9E5.0)
+
+ TOT. NO. OF OBS RECS:      250
+ TOT. NO. OF INDIVIDUALS:     32
+0LENGTH OF THETA:   4
+0DEFAULT THETA BOUNDARY TEST OMITTED:    NO
+0OMEGA HAS BLOCK FORM:
+  1
+  1  1
+  0  0  2
+  0  0  0  3
+0DEFAULT OMEGA BOUNDARY TEST OMITTED:    NO
+0SIGMA HAS SIMPLE DIAGONAL FORM WITH DIMENSION:   2
+0DEFAULT SIGMA BOUNDARY TEST OMITTED:    NO
+0INITIAL ESTIMATE OF THETA:
+ LOWER BOUND    INITIAL EST    UPPER BOUND
+  0.1000E-02     0.1000E+00     0.1000E+07
+  0.1000E-02     0.8000E+01     0.1000E+07
+  0.1000E-02     0.2000E+01     0.1000E+07
+  0.1000E-02     0.1000E+01     0.1000E+07
+0INITIAL ESTIMATE OF OMEGA:
+ BLOCK SET NO.   BLOCK                                                                    FIXED
+        1                                                                                   NO
+                  0.1000E+00
+                  0.1000E-01   0.1000E+00
+        2                                                                                   NO
+                  0.1000E+00
+        3                                                                                   NO
+                  0.1000E+00
+0INITIAL ESTIMATE OF SIGMA:
+ 0.1000E-01
+ 0.0000E+00   0.5000E-01
+0ESTIMATION STEP OMITTED:           NO
+ CONDITIONAL ESTIMATES USED:       YES
+ CENTERED ETA:                      NO
+ EPS-ETA INTERACTION:              YES
+ LAPLACIAN OBJ. FUNC.:              NO
+ NO. OF FUNCT. EVALS. ALLOWED:       9990
+ NO. OF SIG. FIGURES REQUIRED:       3
+ INTERMEDIATE PRINTOUT:            YES
+ ESTIMATE OUTPUT TO MSF:            NO
+ ABORT WITH PRED EXIT CODE 1:       NO
+ IND. OBJ. FUNC. VALUES SORTED:     NO
+0COVARIANCE STEP OMITTED:    NO
+ EIGENVLS. PRINTED:          NO
+ SPECIAL COMPUTATION:        NO
+ COMPRESSED FORMAT:          NO
+0TABLES STEP OMITTED:    NO
+ NO. OF TABLES:           1
+0-- TABLE   1 --
+ PRINTED:                NO
+ HEADER:                YES
+ FILE TO BE FORWARDED:   NO
+0USER-CHOSEN ITEMS:
+ ID TIME WT SEX AGE CL V KA TLAG DVID Y
+
+ THE FOLLOWING LABELS ARE EQUIVALENT
+ PRED=PREDI
+ RES=RESI
+ WRES=WRESI
+]]></nm:problem_information>
+<nm:estimation nm:number='1' nm:type='0'>
+<nm:table_series>1</nm:table_series>
+<nm:estimation_method>focei</nm:estimation_method>
+<nm:estimation_title>First Order Conditional Estimation with Interaction</nm:estimation_title>
+<nm:monitor>
+<nm:obj nm:iteration='0'>1186.5334423289669</nm:obj>
+<nm:obj nm:iteration='32'>250.62748148653685</nm:obj>
+</nm:monitor>
+<nm:termination_status>0</nm:termination_status>
+<nm:termination_information><![CDATA[
+0MINIMIZATION SUCCESSFUL
+ NO. OF FUNCTION EVALUATIONS USED:      341
+ NO. OF SIG. DIGITS IN FINAL EST.:  3.2
+0PARAMETER ESTIMATE IS NEAR ITS BOUNDARY
+ THIS MUST BE ADDRESSED BEFORE THE COVARIANCE STEP CAN BE IMPLEMENTED
+]]></nm:termination_information>
+<nm:etabar>
+<nm:row nm:rname='SUBPOP1'>
+<nm:col nm:cname='ETA1'>2.65623971514634787E-004</nm:col>
+<nm:col nm:cname='ETA2'>-5.24290052774718796E-003</nm:col>
+<nm:col nm:cname='ETA3'>-1.67528283084762072E-002</nm:col>
+<nm:col nm:cname='ETA4'>7.81076735800583215E-003</nm:col>
+</nm:row>
+</nm:etabar>
+<nm:etabarse>
+<nm:row nm:rname='SUBPOP1'>
+<nm:col nm:cname='ETA1'>4.58918982297932612E-002</nm:col>
+<nm:col nm:cname='ETA2'>2.25843805071057682E-002</nm:col>
+<nm:col nm:cname='ETA3'>7.11573679866568110E-002</nm:col>
+<nm:col nm:cname='ETA4'>2.43174927144747047E-002</nm:col>
+</nm:row>
+</nm:etabarse>
+<nm:etabarpval>
+<nm:row nm:rname='SUBPOP1'>
+<nm:col nm:cname='ETA1'>0.99538181122695168</nm:col>
+<nm:col nm:cname='ETA2'>0.81642377592972404</nm:col>
+<nm:col nm:cname='ETA3'>0.81387237406474733</nm:col>
+<nm:col nm:cname='ETA4'>0.74805931265321102</nm:col>
+</nm:row>
+</nm:etabarpval>
+<nm:etashrink>
+<nm:row nm:rname='SUBPOP1'>
+<nm:col nm:cname='ETA1'>1.5778881530439948</nm:col>
+<nm:col nm:cname='ETA2'>9.8703364103081288</nm:col>
+<nm:col nm:cname='ETA3'>46.508131487754092</nm:col>
+<nm:col nm:cname='ETA4'>59.253437230178612</nm:col>
+</nm:row>
+</nm:etashrink>
+<nm:epsshrink>
+<nm:row nm:rname='SUBPOP1'>
+<nm:col nm:cname='EPS1'>14.199956590262723</nm:col>
+<nm:col nm:cname='EPS2'>14.889124725878913</nm:col>
+</nm:row>
+</nm:epsshrink>
+<nm:estimation_elapsed_time>1.02</nm:estimation_elapsed_time>
+<nm:final_objective_function_text>MINIMUM VALUE OF OBJECTIVE FUNCTION</nm:final_objective_function_text>
+<nm:final_objective_function>250.62748148653685</nm:final_objective_function>
+<nm:theta>
+<nm:val nm:name='1'>0.13510839060331739</nm:val>
+<nm:val nm:name='2'>7.9911837864243358</nm:val>
+<nm:val nm:name='3'>1.2841124075070351</nm:val>
+<nm:val nm:name='4'>0.86497694452271601</nm:val>
+</nm:theta>
+<nm:omega>
+<nm:row nm:rname='1'>
+<nm:col nm:cname='1'>7.18166176853826249E-002</nm:col>
+</nm:row>
+<nm:row nm:rname='2'>
+<nm:col nm:cname='1'>5.23262699331192207E-003</nm:col>
+<nm:col nm:cname='2'>2.07404954815347646E-002</nm:col>
+</nm:row>
+<nm:row nm:rname='3'>
+<nm:col nm:cname='1'>0.0000000000000000</nm:col>
+<nm:col nm:cname='2'>0.0000000000000000</nm:col>
+<nm:col nm:cname='3'>0.58452417486800134</nm:col>
+</nm:row>
+<nm:row nm:rname='4'>
+<nm:col nm:cname='1'>0.0000000000000000</nm:col>
+<nm:col nm:cname='2'>0.0000000000000000</nm:col>
+<nm:col nm:cname='3'>0.0000000000000000</nm:col>
+<nm:col nm:cname='4'>0.11765053147480915</nm:col>
+</nm:row>
+</nm:omega>
+<nm:sigma>
+<nm:row nm:rname='1'>
+<nm:col nm:cname='1'>9.99999955296516910E-007</nm:col>
+</nm:row>
+<nm:row nm:rname='2'>
+<nm:col nm:cname='1'>0.0000000000000000</nm:col>
+<nm:col nm:cname='2'>0.44792154137498119</nm:col>
+</nm:row>
+</nm:sigma>
+<nm:omegac>
+<nm:row nm:rname='1'>
+<nm:col nm:cname='1'>0.26798622667104111</nm:col>
+</nm:row>
+<nm:row nm:rname='2'>
+<nm:col nm:cname='1'>0.13558065880055548</nm:col>
+<nm:col nm:cname='2'>0.14401560846496730</nm:col>
+</nm:row>
+<nm:row nm:rname='3'>
+<nm:col nm:cname='1'>0.0000000000000000</nm:col>
+<nm:col nm:cname='2'>0.0000000000000000</nm:col>
+<nm:col nm:cname='3'>0.76454180714203024</nm:col>
+</nm:row>
+<nm:row nm:rname='4'>
+<nm:col nm:cname='1'>0.0000000000000000</nm:col>
+<nm:col nm:cname='2'>0.0000000000000000</nm:col>
+<nm:col nm:cname='3'>0.0000000000000000</nm:col>
+<nm:col nm:cname='4'>0.34300223246330214</nm:col>
+</nm:row>
+</nm:omegac>
+<nm:sigmac>
+<nm:row nm:rname='1'>
+<nm:col nm:cname='1'>9.99999977648258253E-004</nm:col>
+</nm:row>
+<nm:row nm:rname='2'>
+<nm:col nm:cname='1'>0.0000000000000000</nm:col>
+<nm:col nm:cname='2'>0.66926940866513629</nm:col>
+</nm:row>
+</nm:sigmac>
+</nm:estimation>
+</nm:problem>
+</nm:nonmem>
+<nm:stop_datetime>2014-03-14T15:22:14.987</nm:stop_datetime>
+</nm:output>

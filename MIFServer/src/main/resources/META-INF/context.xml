@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context override="true" allowLinking="true">
+
+  <Loader className="org.apache.catalina.loader.VirtualWebappLoader"
+          virtualClasspath="${mif.connectors.location}/*.jar" /> <!-- reloadable="true" ? -->
+
+</Context>

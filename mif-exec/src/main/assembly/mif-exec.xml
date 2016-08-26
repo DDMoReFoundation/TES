@@ -1,0 +1,84 @@
+<assembly
+    xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0 http://maven.apache.org/xsd/assembly-1.1.0.xsd">
+    <id>binary</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+
+    <fileSets>
+        <fileSet>
+            <directory>src/main/resources/home</directory>
+            <outputDirectory>mif-exec</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+    <moduleSets>
+    
+    <!-- 
+        MIF Client artifacts
+     -->
+        <moduleSet>
+            <useAllReactorProjects>true</useAllReactorProjects>
+            <includes>
+                <include>${groupId}:MIFClient</include>
+            </includes>
+            <binaries>
+                <outputDirectory>mif-exec/etc</outputDirectory>
+                <includeDependencies>false</includeDependencies>
+                <attachmentClassifier>default-encryption-key</attachmentClassifier>
+                <includes>
+                    <include>${groupId}:MIFClient:zip:*:*</include>
+                </includes>
+            </binaries>
+        </moduleSet>
+        
+    <!-- 
+        MIF Server artifacts 
+    -->
+        <moduleSet>
+            <useAllReactorProjects>true</useAllReactorProjects>
+            <includes>
+                <include>${groupId}:MIFServer</include>
+            </includes>
+            <binaries>
+                <outputDirectory>mif-exec</outputDirectory>
+                <outputFileNameMapping>${module.artifactId}-${artifact.classifier}.${artifact.extension}</outputFileNameMapping>
+                <includeDependencies>false</includeDependencies>
+                <unpack>false</unpack>
+                <attachmentClassifier>executable</attachmentClassifier>
+                <includes>
+                    <include>${groupId}:${artifactId}:jar:*</include>
+                </includes>
+            </binaries>
+        </moduleSet>
+        
+    <!-- 
+        Connector artifacts 
+    -->
+        <moduleSet>
+            <useAllReactorProjects>true</useAllReactorProjects>
+            <excludes>
+                <exclude>${groupId}:MIFClient</exclude>
+                <exclude>${groupId}:MIFServer</exclude>
+                <exclude>${groupId}:mif-module-parent</exclude>
+                <exclude>${groupId}:mif-examples</exclude>
+                <exclude>${groupId}:windows-nonmem</exclude>
+            </excludes>
+            <binaries>
+                <outputDirectory>mif-exec/connectors</outputDirectory>
+                <outputFileNameMapping>${module.artifactId}.${artifact.extension}</outputFileNameMapping>
+                <includeDependencies>false</includeDependencies>
+                <unpack>false</unpack>
+                <includes>
+                    <include>${groupId}:${artifactId}:jar:*</include>
+                </includes>
+            </binaries>
+        </moduleSet>
+    </moduleSets>
+    
+</assembly>

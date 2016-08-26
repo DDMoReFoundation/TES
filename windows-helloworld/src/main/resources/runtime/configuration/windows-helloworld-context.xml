@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee"
+    xmlns:jms="http://www.springframework.org/schema/jms" xmlns:oxm="http://www.springframework.org/schema/oxm"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xmlns:util="http://www.springframework.org/schema/util"
+    xsi:schemaLocation="
+    http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+    
+    <!-- Associates the connector instance with a given execution type. Each connector can support multiple execution types -->
+    <bean class="com.mango.mif.connector.ConnectorDescriptor">
+        <constructor-arg ref="HELLO-WORLDConnector"/>
+        <constructor-arg><value>${windows-helloworld-connector.executionType}</value></constructor-arg>
+    </bean>
+    
+    <!-- Connector -->
+    <bean id="HELLO-WORLDConnector" class="com.mango.mif.connector.impl.ConnectorWithJobRunners" scope="singleton" parent="connector">
+        <property name="connectorId" value="${windows-helloworld-connector.connectorId}"/>
+        <property name="commandExecutionTarget" ref="HELLO-WORLDCommandExecutionTarget"/>
+        <property name="taskExecutor" ref="HELLO-WORLDJobRunnersTaskExecutor" />
+        <property name="jobRunnerFactory" ref="HELLO-WORLDJobRunnerFactory"/>
+        <property name="responseQueue" value="${windows-helloworld-connector.responseQueue}"/>
+        <property name="requestQueue" value="${windows-helloworld-connector.requestQueue}"/>
+        <property name="cancellationQueue" value="${windows-helloworld-connector.jobCancelQueue}"/>
+        <property name="internalQueue" value="${windows-helloworld-connector.jobResultQueue}"/>
+    </bean>
+    
+    <!-- Connector's Command Execution Target -->
+    <bean id="HELLO-WORLDCommandExecutionTarget" class="com.mango.mif.connector.CommandExecutionTarget">
+        <property name="toolExecutablePath" value="${windows-helloworld.executable}"/>
+        <property name="environmentSetupScript" value="${windows-helloworld.setup.script}"/>
+        <property name="customScriptsDirectory" value="${windows-helloworld-connector.scriptsDirectory}" />
+        <property name="converterToolboxPath" value="${converter.toolbox.executable}"/>
+        <property name="resultsIncludeRegex" value="${windows-helloworld.results.include.regex}"/>
+        <property name="resultsExcludeRegex" value="${windows-helloworld.results.exclude.regex}"/>
+    </bean>
+    
+    <!-- Hello World Connector beans -->
+    
+    <bean id="HELLO-WORLDConnectorService" class="com.mango.mif.helloworld.rest.ConnectorServiceImpl">
+    </bean>
+    
+    <!-- Declaration of message consumers on connector's JMS queues -->
+     
+    <jms:listener-container connection-factory="jmsFactory"  acknowledge="transacted" error-handler="jmsErrorHandler">
+        <jms:listener destination="${windows-helloworld-connector.requestQueue}" ref="HELLO-WORLDConnector"
+            method="onMessage" />
+        <jms:listener destination="${windows-helloworld-connector.jobResultQueue}" ref="HELLO-WORLDJobRunnerResultListener"
+            method="onMessage" />
+        <jms:listener destination="${windows-helloworld-connector.jobCancelQueue}" ref="HELLO-WORLDCancellationResultListener"
+            method="onMessage" />
+    </jms:listener-container>
+ 
+    <!-- Job Runner Result Listener -->
+    <!-- Consumes a message from the Job Runner queue and delegates handling of the message to connector. -->
+    <bean id="HELLO-WORLDJobRunnerResultListener" class="com.mango.mif.connector.runner.JobRunnerResultListener">
+        <property name="connector" ref="HELLO-WORLDConnector"/>
+    </bean>
+ 
+    <!-- Job Runner Cancellation Listener -->
+    <!-- Consumes a message from the connector's cancel queue and delegates handling of the message to connector. -->
+    <bean id="HELLO-WORLDCancellationResultListener" class="com.mango.mif.connector.CancellationRequestListener">
+        <property name="connector" ref="HELLO-WORLDConnector"/>
+    </bean>
+
+    
+    <!-- Task Executor that is used to invoke job runners -->
+    <!-- Once a JobRunner is created it is then being scheduled for execution to a task executor. 
+    Depending on the predicted jobs load it is possible to tune the number of JobRunners running in parallel. 
+    Refer to http://static.springsource.org/spring/docs/3.0.5.RELEASE/reference/scheduling.html for details.
+    -->
+    <bean id="HELLO-WORLDJobRunnersTaskExecutor"
+        class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"
+        scope="prototype">
+        <property name="corePoolSize"
+            value="${windows-helloworld-connector.jobRunnersTaskExecutor.corePoolSize}" />
+        <property name="maxPoolSize"
+            value="${windows-helloworld-connector.jobRunnersTaskExecutor.maxPoolSize}" />
+        <property name="queueCapacity"
+            value="${windows-helloworld-connector.jobRunnersTaskExecutor.queueCapacity}" />
+    </bean>
+     
+    <!-- Job Runner -->
+    <bean id="HELLO-WORLDJobRunner" class="com.mango.mif.connector.runner.impl.DefaultJobRunner" scope="prototype" parent="defaultJobRunner">
+        <property name="resultDestination" value="${windows-helloworld-connector.jobResultQueue}"/>
+    </bean>
+ 
+    <!-- Job Runner Factory -->
+    <!-- responsible for building job runners, it ensures that a JobRunner that scxml definition, state handler and driver object has been correctly registered -->
+    <bean id="HELLO-WORLDJobRunnerFactory" class="com.mango.mif.connector.runner.impl.JobRunnerWithSCXMLDriverFactory">
+        <lookup-method name="createDriver" bean="driver" />
+        <lookup-method name="createJobRunner" bean="HELLO-WORLDJobRunner"/>
+        <lookup-method name="getStateHandlers" bean="HELLO-WORLDStateHandlers"/>
+        <property name="scxmlDefinition" value="${windows-helloworld-connector.driver.scxml}" />
+        <lookup-method name="createCancellationHandler" bean="HELLO-WORLDcancellationHandler"/>
+        
+    </bean>
+ 
+ 
+    <!-- Command builder -->
+    <!-- 
+        Component used to build a shell commands and summaries. It is possible to register additional properties on that object to make them available from templates. 
+    -->
+    <bean id="HELLO-WORLDFreemarkerConfigurationProvider" parent="mifFreemarkerConfigurationProvider">
+            <property name="templateLocations">
+                <list>
+                    <value>${windows-helloworld-connector.templatesDirectory}</value>
+                    <value>${mif.templatesDirectory}</value>
+                </list>
+            </property>
+    </bean>
+    <bean id="HELLO-WORLDCommandBuilder"
+        class="com.mango.mif.core.exec.template.JobAwareFreemarkerTemplateCommandBuilder"
+        abstract="true" parent="mifCommandBuilder">
+        <property name="freemarkerConfigurationProvider" ref="HELLO-WORLDFreemarkerConfigurationProvider"/>
+    </bean>
+
+    <!-- Cancellation handler -->
+    <!-- 
+        A handler responsible for performing actions related to cancellation of a tool processing.
+     -->
+    <bean id="HELLO-WORLDcancellationHandler"
+        class="com.mango.mif.connector.runner.impl.SCXMLProcessingCancellationHandlerImpl" scope="prototype">
+        <property name="jobManagementService" ref="jobManagementService" />
+        <property name="commandBuilder">
+            <bean parent="HELLO-WORLDCommandBuilder">
+                <!-- 
+                    Template of a shell script that should be executed by that handler 
+                -->
+                <property name="template" value="${windows-helloworld-connector.cancellationHandlerTemplate}" />
+            </bean>
+        </property>
+        <property name="invokerResultHandler">
+            <bean
+                class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                <constructor-arg value="task.cancelled" />
+            </bean>
+        </property>
+    </bean>
+     
+    <!--
+        State Handlers
+     -->
+     
+    <bean id="HELLO-WORLDStateHandlers" class="java.util.ArrayList" scope="prototype">
+        <constructor-arg>
+        <list>
+                <ref bean="pendingStateHandler"/>
+                <ref bean="runningStateHandler"/>
+                <ref bean="task-pendingStateHandler"/>
+                 
+                <!-- 
+                    A handler for 'task-preparing' state 
+                -->
+                <bean id="task-prepareStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.GenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-preparing" />
+                    <constructor-arg index="1" value="task.submit" />
+                    <property name="commandBuilder">
+                        <bean parent="HELLO-WORLDCommandBuilder">
+                            <!-- 
+                                Template of a shell script that should be executed by that handler 
+                            -->
+                            <property name="template"
+                                value="${windows-helloworld-connector.prepareHandlerTemplate}" />
+                        </bean>
+                    </property>                     
+                    <!-- 
+                    Component handling the results of the prepareHandlerTemplate script execution
+                        the implementation used simply checks the exit status of the executed script and if it is different than 0 it fails the execution.
+                     -->
+                    <property name="invokerResultHandler">
+                        <bean
+                            class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                            <constructor-arg value="task.submit" />
+                        </bean>
+                    </property>
+                </bean>
+                <bean id="task-submittingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-submitting" />
+                    <constructor-arg index="1" value="task.process" />
+                </bean>
+ 
+                <!-- 
+                        A handler for 'task-processing' state 
+                -->
+                <bean id="task-processingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.GenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-processing" />
+                    <constructor-arg index="1" value="task.retrieve" />
+                    <property name="commandBuilder">
+                        <bean parent="HELLO-WORLDCommandBuilder">                       
+                        <!-- 
+                            template of a shell script that should be executed by that handler 
+                        -->
+                            <property name="template"
+                                value="${windows-helloworld-connector.processingHandlerTemplate}" />
+                        </bean>
+                    </property>     
+                    <!-- 
+                        Component handling the results of the processingHandlerTemplate script execution
+                        the implementation used simply checks the exit status of the executed script and if it is different than 0 it fails the execution.
+                     -->
+                    <property name="invokerResultHandler">
+                        <bean
+                            class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                            <constructor-arg value="task.retrieve" />
+                        </bean>
+                    </property> 
+                    <!-- 
+                        Component responsible for generating detailed status object 
+                     -->
+                    <property name="detailedStatusBuilder">
+                        <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                            <property name="summaryMessageBuilder">
+                                <bean parent="HELLO-WORLDCommandBuilder">                   
+                                <!-- 
+                                    Template used to generate summary message
+                                 -->
+                                    <property name="template" value="${windows-helloworld-connector.processingSummaryMessageTemplate}"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                
+                <!-- 
+                        A handler for 'task-retrieving' state 
+                -->
+                <bean id="task-retrievingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.GenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-retrieving" />
+                    <constructor-arg index="1" value="task.postprocess" />
+                    <property name="commandBuilder">
+                        <bean parent="HELLO-WORLDCommandBuilder">
+                        <!-- 
+                            template of a shell script that should be executed by that handler 
+                        -->
+                            <property name="template"
+                                value="${windows-helloworld-connector.retrieveHandlerTemplate}" />
+                        </bean>
+                    </property>
+                    
+                    <!-- 
+                        Component handling the results of the retrieveHandlerTemplate script execution
+                        the implementation used simply checks the exit status of the executed script and if it is different than 0 it fails the execution.
+                     -->
+                    <property name="invokerResultHandler">
+                        <bean
+                            class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                            <constructor-arg value="task.postprocess" />
+                        </bean>
+                    </property>
+                </bean>
+                 
+                <bean id="task-postprocessingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-postprocessing" />
+                    <constructor-arg index="1" value="task.finished" />
+                </bean>
+                
+                <ref bean="task-finishedStateHandler-empty"/>
+                
+                <bean id="finishedStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="finished" />
+                    <property name="detailedStatusBuilder">
+                        <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                            <property name="summaryMessageBuilder">
+                                <bean parent="HELLO-WORLDCommandBuilder">
+                                    <!-- 
+                                            Template used to generate summary message
+                                     -->
+                                    <property name="template" value="${windows-helloworld-connector.completedSummaryMessageTemplate}"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                
+                <bean id="failedStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="failed" />
+                    <property name="detailedStatusBuilder">
+                        <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                            <property name="summaryMessageBuilder">
+                                <bean parent="HELLO-WORLDCommandBuilder">
+                                <!-- 
+                                        Template used to generate summary message
+                                 -->
+                                    <property name="template" value="${windows-helloworld-connector.failedSummaryMessageTemplate}"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <ref bean="cancelledStateHandler"/>
+                
+            </list>
+        </constructor-arg>
+    </bean>
+</beans>

@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee"
+    xmlns:jms="http://www.springframework.org/schema/jms" xmlns:oxm="http://www.springframework.org/schema/oxm"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xmlns:util="http://www.springframework.org/schema/util"
+    xsi:schemaLocation="
+    http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+    
+	<!-- Associates the connector instance with a given execution type. Each connector can support multiple execution types. -->
+    <bean class="com.mango.mif.connector.ConnectorDescriptor">
+        <constructor-arg ref="NONMEMConnector"/>
+        <constructor-arg>
+                <list>
+                    <value>${nonmemconnector.executionType}</value>
+                    <value>${nonmemconnector.executionType.legacy}</value>
+                </list>
+        </constructor-arg>
+    </bean>
+    
+    <!-- Connector -->
+    <bean id="NONMEMConnector" class="com.mango.mif.connector.impl.ConnectorWithJobRunners" scope="singleton" parent="connector">
+        <property name="connectorId" value="${nonmemconnector.connectorId}"/>
+        <property name="commandExecutionTarget" ref="NONMEMCommandExecutionTarget"/>
+        <property name="taskExecutor" ref="NONMEMJobRunnersTaskExecutor" />
+        <property name="jobRunnerFactory" ref="NONMEMJobRunnerFactory"/>
+        <property name="responseQueue" value="${nonmemconnector.responseQueue}"/>
+        <property name="requestQueue" value="${nonmemconnector.requestQueue}"/>
+        <property name="cancellationQueue" value="${nonmemconnector.jobCancelQueue}"/>
+        <property name="internalQueue" value="${nonmemconnector.jobResultQueue}"/>
+    </bean>
+    
+    <!-- Connector's Command Execution Target -->
+    <bean id="NONMEMCommandExecutionTarget" class="com.mango.mif.connector.CommandExecutionTarget">
+        <property name="toolExecutablePath" value="${nonmem.executable}"/>
+        <property name="customScriptsDirectory" value="${nonmemconnector.scriptsDirectory}"/>
+        <property name="converterToolboxPath" value="${converter.toolbox.executable}"/>
+        <property name="environmentSetupScript" value="${nonmem.setup.script}"/>
+        <property name="resultsIncludeRegex" value="${nonmem.results.include.regex}"/>
+        <property name="resultsExcludeRegex" value="${nonmem.results.exclude.regex}"/>
+    </bean>
+     
+	<!-- Declaration of message consumers on connector's JMS queues -->
+     
+    <jms:listener-container connection-factory="jmsFactory"  acknowledge="transacted" error-handler="jmsErrorHandler">
+        <jms:listener destination="${nonmemconnector.requestQueue}" ref="NONMEMConnector"
+            method="onMessage" />
+        <jms:listener destination="${nonmemconnector.jobResultQueue}" ref="NONMEMJobRunnerResultListener"
+            method="onMessage" />
+        <jms:listener destination="${nonmemconnector.jobCancelQueue}" ref="NONMEMCancellationResultListener"
+            method="onMessage" />
+    </jms:listener-container>
+ 
+    <!-- Job Runner Result Listener -->
+    <!-- Consumes a message from the Job Runner queue and delegates handling of the message to connector. -->
+    <bean id="NONMEMJobRunnerResultListener" class="com.mango.mif.connector.runner.JobRunnerResultListener">
+        <property name="connector" ref="NONMEMConnector"/>
+    </bean>
+ 
+    <!-- Job Runner Cancellation Listener -->
+    <!-- Consumes a message from the connector's cancel queue and delegates handling of the message to connector. -->
+    <bean id="NONMEMCancellationResultListener" class="com.mango.mif.connector.CancellationRequestListener">
+        <property name="connector" ref="NONMEMConnector"/>
+    </bean>
+
+    <!-- Task Executor that is used to invoke job runners -->
+	<!-- Once a JobRunner is created it is then being scheduled for execution to a task executor. 
+	Depending on the predicted jobs load it is possible to tune the number of JobRunners running in parallel. 
+	Refer to http://static.springsource.org/spring/docs/3.0.5.RELEASE/reference/scheduling.html for details.
+	-->
+    <bean id="NONMEMJobRunnersTaskExecutor"
+        class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"
+        scope="prototype">
+        <property name="corePoolSize"
+            value="${nonmemconnector.jobRunnersTaskExecutor.corePoolSize}" />
+        <property name="maxPoolSize"
+            value="${nonmemconnector.jobRunnersTaskExecutor.maxPoolSize}" />
+        <property name="queueCapacity"
+            value="${nonmemconnector.jobRunnersTaskExecutor.queueCapacity}" />
+    </bean>
+     
+    <!-- Job Runner -->
+    <bean id="NONMEMJobRunner" scope="prototype" parent="defaultJobRunner">
+        <property name="resultDestination" value="${nonmemconnector.jobResultQueue}"/>
+    </bean>
+ 
+    <!-- Job Runner Factory -->
+	<!-- responsible for building job runners, it ensures that a JobRunner that scxml definition, state handler and driver object has been correctly registered -->
+    <bean id="NONMEMJobRunnerFactory" class="com.mango.mif.connector.runner.impl.JobRunnerWithSCXMLDriverFactory">
+        <lookup-method name="createDriver" bean="driver" />
+        <lookup-method name="createJobRunner" bean="NONMEMJobRunner"/>
+        <lookup-method name="getStateHandlers" bean="NONMEMStateHandlers"/>
+        <property name="scxmlDefinition" value="${nonmemconnector.driver.scxml}" />
+        <lookup-method name="createCancellationHandler" bean="NONMEMCancellationHandler"/>
+        
+    </bean>
+  
+    <!-- Command builder -->
+    
+    <bean id="NONMEMFreemarkerConfigurationProvider" parent="mifFreemarkerConfigurationProvider">
+            <property name="templateLocations">
+                <list>
+                    <value>${nonmemconnector.templatesDirectory}</value>
+                    <value>${mif.templatesDirectory}</value>
+                </list>
+            </property>
+    </bean>
+	<!-- 
+		Component used to build a shell commands and summaries. It is possible to register additional properties on that object to make them available from templates. 
+	-->
+    <bean id="NONMEMCommandBuilder"
+        class="com.mango.mif.core.exec.template.JobAwareFreemarkerTemplateCommandBuilder"
+        abstract="true" parent="mifCommandBuilder">
+		
+        <property name="freemarkerConfigurationProvider" ref="NONMEMFreemarkerConfigurationProvider"/>
+    </bean>
+
+    <!-- Cancellation handler -->
+    <!-- 
+    	A handler responsible for performing actions related to cancellation of a tool processing.
+     -->
+    <bean id="NONMEMCancellationHandler"
+        class="com.mango.mif.connector.runner.impl.SCXMLProcessingCancellationHandlerImpl" scope="prototype">
+        <property name="jobManagementService" ref="jobManagementService" />
+        <property name="commandBuilder">
+            <bean parent="NONMEMCommandBuilder">
+				<!-- 
+					Template of a shell script that should be executed by that handler 
+				-->
+                <property name="template" value="${nonmemconnector.cancellationHandlerTemplate}" />
+            </bean>
+        </property>
+        <property name="invokerResultHandler">
+            <bean
+                class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                <constructor-arg value="task.cancelled" />
+            </bean>
+        </property>
+    </bean>
+     
+    <!--
+        State Handlers
+     -->
+     
+    <bean id="NONMEMStateHandlers" class="java.util.ArrayList" scope="prototype">
+        <constructor-arg>
+        <list>
+                <ref bean="pendingStateHandler"/>
+                <ref bean="runningStateHandler"/>
+                <ref bean="task-pendingStateHandler"/>
+                 
+                <!-- 
+					A handler for 'task-preparing' state 
+				-->
+                <bean id="task-prepareStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.GenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-preparing" />
+                    <constructor-arg index="1" value="task.submit" />
+                    <property name="commandBuilder">
+                        <bean parent="NONMEMCommandBuilder">
+							<!-- 
+								Template of a shell script that should be executed by that handler 
+							-->
+                            <property name="template"
+                                value="${nonmemconnector.prepareHandlerTemplate}" />
+                        </bean>
+                    </property>						
+					<!-- 
+					Component handling the results of the prepareHandlerTemplate script execution
+						the implementation used simply checks the exit status of the executed script and if it is different than 0 it fails the execution.
+					 -->
+                    <property name="invokerResultHandler">
+                        <bean
+                            class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                            <constructor-arg value="task.submit" />
+                        </bean>
+                    </property>
+                </bean>
+                <bean id="task-submittingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-submitting" />
+                    <constructor-arg index="1" value="task.process" />
+                </bean>
+ 
+				<!-- 
+						A handler for 'task-processing' state 
+				-->
+                <bean id="task-processingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.GenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-processing" />
+                    <constructor-arg index="1" value="task.retrieve" />
+                    <property name="commandBuilder">
+                        <bean parent="NONMEMCommandBuilder">						
+						<!-- 
+							template of a shell script that should be executed by that handler 
+						-->
+                            <property name="template"
+                                value="${nonmemconnector.processingHandlerTemplate}" />
+                        </bean>
+                    </property>		
+					<!-- 
+						Component handling the results of the processingHandlerTemplate script execution
+						the implementation used simply checks the exit status of the executed script and if it is different than 0 it fails the execution.
+					 -->
+                    <property name="invokerResultHandler">
+                        <bean
+                            class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                            <constructor-arg value="task.retrieve" />
+                        </bean>
+                    </property>	
+					<!-- 
+						Component responsible for generating detailed status object 
+					 -->
+                    <property name="detailedStatusBuilder">
+                        <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                            <property name="summaryMessageBuilder">
+                                <bean parent="NONMEMCommandBuilder">					
+                                <!-- 
+									Template used to generate summary message
+								 -->
+                                    <property name="template" value="${nonmemconnector.processingSummaryMessageTemplate}"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                
+				<!-- 
+						A handler for 'task-retrieving' state 
+				-->
+                <bean id="task-retrievingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.GenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-retrieving" />
+                    <constructor-arg index="1" value="task.postprocess" />
+                    <property name="commandBuilder">
+                        <bean parent="NONMEMCommandBuilder">
+                        <!-- 
+							template of a shell script that should be executed by that handler 
+						-->
+                            <property name="template"
+                                value="${nonmemconnector.retrieveHandlerTemplate}" />
+                        </bean>
+                    </property>
+                    
+                    <!-- 
+						Component handling the results of the retrieveHandlerTemplate script execution
+						the implementation used simply checks the exit status of the executed script and if it is different than 0 it fails the execution.
+					 -->
+                    <property name="invokerResultHandler">
+                        <bean
+                            class="com.mango.mif.connector.runner.impl.statehandler.GenericShellCommandInvokerResultHandler">
+                            <constructor-arg value="task.postprocess" />
+                        </bean>
+                    </property>
+                </bean>
+                 
+                <bean id="task-postprocessingStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="task-postprocessing" />
+                    <constructor-arg index="1" value="task.finished" />
+                </bean>
+                
+                <ref bean="task-finishedStateHandler-empty"/>
+                
+                <bean id="finishedStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="finished" />
+                    <property name="detailedStatusBuilder">
+                        <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                            <property name="summaryMessageBuilder">
+                                <bean parent="NONMEMCommandBuilder">
+			                        <!-- 
+											Template used to generate summary message
+									 -->
+                                    <property name="template" value="${nonmemconnector.completedSummaryMessageTemplate}"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                
+                <bean id="failedStateHandler"
+                    class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+                    scope="prototype" parent="defaultStateHandler">
+                    <constructor-arg index="0" value="failed" />
+                    <property name="detailedStatusBuilder">
+                        <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                            <property name="summaryMessageBuilder">
+                                <bean parent="NONMEMCommandBuilder">
+                                <!-- 
+										Template used to generate summary message
+								 -->
+                                    <property name="template" value="${nonmemconnector.failedSummaryMessageTemplate}"/>
+                                </bean>
+                            </property>
+                        </bean>
+                    </property>
+                </bean>
+                <ref bean="cancelledStateHandler"/>
+                
+            </list>
+        </constructor-arg>
+    </bean>
+    
+</beans>

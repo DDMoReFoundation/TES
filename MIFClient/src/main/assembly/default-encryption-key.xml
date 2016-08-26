@@ -1,0 +1,14 @@
+<assembly>
+	<id>default-encryption-key</id>
+	<formats>
+		<format>zip</format>
+	</formats>
+	<includeBaseDirectory>false</includeBaseDirectory>
+	<files>
+		<file>
+			<source>target/classes/com/mango/mif/utils/encrypt/defaultDesKey.key</source>
+			<outputDirectory></outputDirectory>
+			<destName>MIF-encryption-key-default.key</destName>
+		</file>
+	</files>
+</assembly>

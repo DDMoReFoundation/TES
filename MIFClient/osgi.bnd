@@ -1,0 +1,2 @@
+# this extends the default the import version range as it does not line up between mvn and p2
+-consumer-policy :    ${range;[==,++)}

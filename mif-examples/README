@@ -1,0 +1,11 @@
+The examples are provided as integration tests. 
+
+In order to run the example code, open MIFHttpRestClientIT and update the following attributes:
+mifUserName - your system user name
+mifUserPassword - your system user password
+MIF_SHARE - a mount name of the MIF shared location (e.g. linux: /usr/global/mifshare or windows: X:/)
+MIF_HOST - a name of the host running MIF
+MIF_PORT - port number of the tomcat instance running MIF
+
+Notes
+The test running R assumes that the R executable used by SGE execution node is located under /opt/mango/R/2.13.1/bin/Rscript. You might need to update the path in shouldSubmitExecutionRequestToRConnectorPollAndWaitTillProcessingIsCompleted so it points to the correct location.

@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee"
+    xmlns:jms="http://www.springframework.org/schema/jms" xmlns:oxm="http://www.springframework.org/schema/oxm"
+    xmlns:p="http://www.springframework.org/schema/p" xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="
+    http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+	<bean class="com.mango.mif.utils.MIFPropertyPlaceholderConfigurer">
+        <!-- Ignore validation of properties set in the tests -->
+        <property name="validatePropertiesOnStart" value="false"/>
+		<property name="ignoreResourceNotFound" value="true" />
+		<property name="ignoreUnresolvablePlaceholders" value="true"/>
+		<property name="systemPropertiesModeName"><value>SYSTEM_PROPERTIES_MODE_OVERRIDE</value></property>
+        
+		<property name="locations">
+			<list>
+                <value>classpath:spring/mif-core-test.properties</value>
+                <value>file:${MIF_CONNECTORS_LOCATION}/**/*.properties</value>
+			</list>
+		</property>
+	</bean>
+
+    <bean id="jobManagementService" class="com.mango.mif.core.services.JobManagementServiceImpl">
+        <property name="mifServiceAccountUserName" value="${mif.serviceAccount.userName}" />
+        <property name="mifServiceAcccountPassword" value="${mif.serviceAccount.userPassword}" />
+        <property name="jobInvokerProvider" ref="jobInvokerProvider" />
+        <property name="jobRepository" ref="jobRepository" />
+    </bean>
+    
+    <bean id="sshJobManagementService" class="com.mango.mif.core.services.JobManagementServiceImpl" scope="prototype">
+        <property name="jobRepository" ref="jobRepository" />
+        <property name="mifServiceAccountUserName" value="${mif.serviceAccount.userName}" />
+        <property name="mifServiceAcccountPassword" value="${mif.serviceAccount.userPassword}" />
+        <property name="jobInvokerProvider" ref="sshJobInvokerProvider" />
+    </bean>
+
+    <bean id="connectorsRegistry"  class="com.mango.mif.core.services.DiscoveringConnectorsRegistry"/>
+    
+    <bean id="jobRepository" class="com.mango.mif.core.dao.impl.JobRepository">
+        <property name="connectorsRegistry" ref="connectorsRegistry"/>
+    </bean>
+
+    <bean id="jobInvokerProvider"
+        class="com.mango.mif.core.exec.ShellJobInvokerProvider">
+        <property name="invokerFactory" ref="invokerFactory"/>
+    </bean>
+    
+    <bean id="sshJobInvokerProvider" class="com.mango.mif.core.exec.SSHJobInvokerProvider">
+        <property name="invokerFactory" ref="invokerFactory"/>
+        <property name="invokerParameters" ref="invokerParams"/>
+        <property name="encrypter" ref="encrypter"/>
+    </bean>
+
+    <bean id="mifCommandBuilder"
+        class="com.mango.mif.core.exec.template.JobAwareFreemarkerTemplateCommandBuilder"
+        scope="prototype">
+        <constructor-arg index="0">
+            <map>
+                <entry>
+                    <key>
+                        <value>mifModifiedListFileName</value>
+                    </key>
+                    <value>${mif.modifiedListFileName}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>gridModifiedListFileName</value>
+                    </key>
+                    <value>${connector.tptModifiedListFileName}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>mifHiddenDirectoryName</value>
+                    </key>
+                    <value>${connector.hiddenDirectoryName}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>SCRIPT_PREAMBLE</value>
+                    </key>
+                    <value>${connector.scriptPreamble}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>timestampFileName</value>
+                    </key>
+                    <value>${connector.timestampFileName}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>gridMifHiddenDirectoryName</value>
+                    </key>
+                    <value>${connector.hiddenDirectoryName}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>SHELL</value>
+                    </key>
+                    <value>${mif.shell}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>CONNECTOR_UTILS</value>
+                    </key>
+                    <value>${mif.genericScriptsDirectory}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>GENERIC_UTILS</value>
+                    </key>
+                    <value>${mif.genericScriptsDirectory}</value>
+                </entry>
+                <entry>
+                    <key>
+                        <value>MANGO_UTILS</value>
+                    </key>
+                    <value>${mif.commonScriptsDirectory}</value>
+                </entry>
+            </map>
+        </constructor-arg>
+        <property name="freemarkerConfigurationProvider" ref="mifFreemarkerConfigurationProvider"/>
+    </bean>
+    
+    <bean id="mifFreemarkerConfigurationProvider"  class="com.mango.mif.core.exec.template.FreemarkerConfigurationProviderImpl">
+            <constructor-arg>
+                <bean class="freemarker.template.Configuration">
+                    <property name="templateUpdateDelay" value="${mif.templateUpdateDelay}" />
+                </bean>
+            </constructor-arg>
+            <property name="templateLocations">
+                <list>
+                    <value>${mif.templatesDirectory}</value>
+                </list>
+            </property>
+    </bean>
+
+    <bean id="jmsErrorHandler" class="com.mango.mif.utils.JMSErrorHandler" />
+
+    <!-- message routing -->
+
+    <bean id="requestRouter" class="com.mango.mif.core.messaging.MessageRouter">
+        <property name="queueResolver">
+            <bean class="com.mango.mif.core.messaging.RequestQueueResolver">
+                <property name="connectorsRegistry" ref="connectorsRegistry" />
+            </bean>
+        </property>
+        
+        <property name="routingErrorHandler">
+            <bean class="com.mango.mif.core.messaging.RequestRoutingErrorHandler">
+                <constructor-arg value="${mif.responseQueue}"/>
+                <constructor-arg>
+                <ref bean="jmsTemplate"/>
+                </constructor-arg>
+            </bean>
+        </property>
+        <property name="jmsTemplate" ref="mifJmsTemplate"/>	    
+    </bean>
+
+    <bean id="cancellationRouter" class="com.mango.mif.core.messaging.MessageRouter">
+        <property name="queueResolver">
+            <bean class="com.mango.mif.core.messaging.CancellationQueueResolver">
+                <property name="jobManagementService" ref="jobManagementService" />
+                <property name="connectorsRegistry" ref="connectorsRegistry" />
+            </bean>
+        </property>
+        
+        <property name="routingErrorHandler">
+            <bean class="com.mango.mif.core.messaging.CancellationRequestRoutingErrorHandler">
+                <constructor-arg value="${mif.responseQueue}"/>
+                <constructor-arg>
+                <ref bean="jmsTemplate"/>
+                </constructor-arg>
+            </bean>
+        </property>
+        <property name="jmsTemplate" ref="mifJmsTemplate"/>
+    </bean>
+
+    <bean id="mifJmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="jmsFactory" />
+    </bean>
+    
+    <jms:listener-container connection-factory="jmsFactory" acknowledge="transacted" error-handler="jmsErrorHandler">
+        <jms:listener destination="${mif.requestQueue}" ref="requestRouter"
+            method="onMessage" />
+        <jms:listener destination="${mif.cancelQueue}" ref="cancellationRouter"
+            method="onMessage" />
+        <jms:listener destination="${mif.dlq}" ref="rejectedExecutionRequestConsumer"
+            method="onMessage" />
+    </jms:listener-container>    
+
+
+    <bean id="rejectedExecutionRequestConsumer" class="com.mango.mif.core.messaging.RejectedExecutionRequestConsumer">
+        <property name="jmsTemplate" ref="mifJmsTemplate"/>
+        <property name="jobManagementService" ref="jobManagementService"/>
+        <property name="connectorsRegistry" ref="connectorsRegistry"/>
+    </bean>
+
+
+
+    <!-- Parameters with which we will initialise the session pool when it is created -->
+    <bean id="sessionPoolParameters" class="com.mango.mif.core.exec.jsch.JschSessionPoolParameters">
+        <property name="maxActive" value="${mif.sessionpool.maxActive}"/>
+        <property name="maxIdle" value="${mif.sessionpool.maxIdle}"/>
+        <property name="minIdle" value="${mif.sessionpool.minIdle}"/>
+        <property name="maxTotal" value="${mif.sessionpool.maxTotal}"/>
+        <property name="whenExhaustedAction" value="${mif.sessionpool.whenExhaustedAction}"/>
+        <property name="timeBetweenEvictionRunsMillis" value="${mif.sessionpool.timeBetweenEvictionRunsMillis}"/>
+        <property name="minEvictableIdleTimeMillis" value="${mif.sessionpool.minEvictableIdleTimeMillis}"/>
+        <property name="numTestsPerEvictionRun" value="${mif.sessionpool.numTestsPerEvictionRun}"/>
+        <property name="testOnReturn" value="${mif.sessionpool.testOnReturn}"/>
+        <property name="testWhileIdle" value="${mif.sessionpool.testWhileIdle}"/>
+        <property name="lifo" value="${mif.sessionpool.lifo}"/>
+    </bean>
+
+    <!-- inject the parameters into the session pool, so when the session pool actually creates the pool
+         (which is a static member), it knows what values to initialise with 
+    -->
+    <bean id="sessionPool" class="com.mango.mif.core.exec.jsch.JschSessionPool">
+        <property name="jschSessionPoolParameters" ref="sessionPoolParameters"/>
+    </bean>
+    
+    <bean id="objectPool" factory-bean="sessionPool" factory-method="getPool" />
+
+    <!-- Encryption -->
+    <bean id="encrypter" class="com.mango.mif.utils.encrypt.DesEncrypter">
+        <!-- for the tests use the default key -->
+    </bean>
+    
+    <bean id="invokerFactory" class="com.mango.mif.core.exec.invoker.InvokerFactory" />    
+    
+    <bean id="invokerParams" class="com.mango.mif.core.exec.jsch.JschParameters" scope="prototype">
+        <property name="host" value="${connector.jschInvoker.host}" />
+        <property name="port" value="${connector.jschInvoker.port}" />
+        <property name="protocols" value="${connector.jschInvoker.protocols}" />
+    </bean>
+    
+    <bean id="connectorJmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="jmsFactory" />
+        <property name="defaultDestination" ref="defaultQueue" />
+    </bean>
+    
+    <bean id="jobRuntimeMetricsProviderImpl" class="com.mango.mif.connector.impl.JobRuntimeMetricsProviderImpl"/>
+    
+    <bean id="connector" class="com.mango.mif.connector.impl.ConnectorWithJobRunners"
+        scope="prototype" abstract="true">
+        <property name="jmsTemplate" ref="connectorJmsTemplate" />
+        <property name="jobManagementService" ref="jobManagementService" />
+        <property name="jobCancelledDetailedStatusBuilder" ref="jobCancelledDetailedStatusBuilder" />
+        <property name="jobRejectedDetailedStatusBuilder" ref="jobRejectedDetailedStatusBuilder" />
+        <property name="jobRuntimeMetricsProvider" ref="jobRuntimeMetricsProviderImpl" />
+    </bean>
+    
+    <bean id="defaultStateHandler" abstract="true">
+        <property name="jobManagementService" ref="jobManagementService" />
+    </bean>
+    
+    <bean id="remoteExecutionDefaultStateHandler" abstract="true">
+        <property name="jobManagementService" ref="sshJobManagementService" />
+    </bean>
+    
+    <bean id="defaultJobRunner"
+        class="com.mango.mif.connector.runner.impl.DefaultJobRunner"
+        abstract="true" scope="prototype">
+        <property name="jmsTemplate" ref="connectorJmsTemplate" />
+        <property name="jobManagementService" ref="jobManagementService" />
+        <property name="unavailableSummaryMessage" value="${connector.unavailableSummaryMessage}"/>
+    </bean>
+
+    <bean id="driver" class="com.mango.mif.connector.runner.impl.SCXMLDriverImpl"
+        scope="prototype">
+        <property name="stateHandlersExecutor" ref="stateHandlersTaskExecutor" />
+    </bean>
+
+	<bean id="jobCancelledDetailedStatusBuilder"
+		class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+		<property name="summaryMessageBuilder">
+			<bean parent="mifCommandBuilder">
+				<property name="template"
+					value="${connector.cancelledSummaryMessageTemplate}" />
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="jobRejectedDetailedStatusBuilder"
+		class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+		<property name="summaryMessageBuilder">
+			<bean parent="mifCommandBuilder">
+				<property name="template"
+					value="${connector.rejectedSummaryMessageTemplate}" />
+			</bean>
+		</property>
+	</bean>
+	
+        
+    <bean id="pendingStateHandler"
+        class="com.mango.mif.connector.runner.impl.statehandler.DefaultStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="pending" />
+    </bean>
+
+    <bean id="task-pendingStateHandler"
+        class="com.mango.mif.connector.runner.impl.statehandler.PendingStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="task-pending" />
+        <constructor-arg index="1" value="task.prepare" />
+    </bean>
+    
+    <bean id="task-finishedStateHandler-empty"
+        class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="task-finished" />
+        <constructor-arg index="1" value="done.state.running" />
+    </bean>
+    
+    <bean id="runningStateHandler"
+        class="com.mango.mif.connector.runner.impl.statehandler.DefaultStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="running" />
+    </bean>
+    
+    <bean id="finishedStateHandler"
+        class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="finished" />
+        <property name="detailedStatusBuilder">
+            <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                <property name="summaryMessageBuilder">
+                    <bean parent="mifCommandBuilder">
+                        <property name="template" value="${connector.completedSummaryMessageTemplate}"/>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+    
+    <bean id="failedStateHandler"
+        class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="failed" />
+        <property name="detailedStatusBuilder">
+            <bean class="com.mango.mif.connector.runner.status.GenericJobDetailedStatusBuilderWithTemplatedSummaryMessage">
+                <property name="summaryMessageBuilder">
+                    <bean parent="mifCommandBuilder">
+                        <property name="template" value="${connector.failedSummaryMessageTemplate}"/>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+    
+    <bean id="cancelledStateHandler" class="com.mango.mif.connector.runner.impl.statehandler.BaseGenericShellBasedStateHandler"
+        scope="prototype" parent="defaultStateHandler">
+        <constructor-arg index="0" value="cancelled" />
+        
+        <property name="detailedStatusBuilder" ref="jobCancelledDetailedStatusBuilder"/>
+    </bean>
+
+    <!-- 
+    	 State Handlers Task Executor.  
+         This is deprecated and should not be used.
+         Do not increase the core pool size here, it will cause jobs to fail. 
+    -->
+    <bean id="stateHandlersTaskExecutor"
+        class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"
+        scope="prototype">
+        <property name="corePoolSize"
+            value="${connector.jobRunnerStateHandlersTaskExecutor.corePoolSize}" />
+        <property name="maxPoolSize"
+            value="${connector.jobRunnerStateHandlersTaskExecutor.maxPoolSize}" />
+        <property name="queueCapacity"
+            value="${connector.jobRunnerStateHandlersTaskExecutor.queueCapacity}" />
+    </bean>   
+    
+    <bean id="invokerHelperFactory" class="com.mango.mif.core.exec.invoker.SimpleInvokerHelperFactory"/>
+</beans>

@@ -1,0 +1,20 @@
+Wings for NONMEM
+C:\nm730beta\ver7_20121107\ivf11\reg\tr\nmtran.exe 
+  
+ WARNINGS AND ERRORS (IF ANY) FOR PROBLEM    1
+             
+ (WARNING  2) NM-TRAN INFERS THAT THE DATA ARE POPULATION.
+             
+ (WARNING  3) THERE MAY BE AN ERROR IN THE ABBREVIATED CODE. THE FOLLOWING
+ ONE OR MORE RANDOM VARIABLES ARE DEFINED WITH "IF" STATEMENTS THAT DO NOT
+ PROVIDE DEFINITIONS FOR BOTH THE "THEN" AND "ELSE" CASES. IF ALL
+ CONDITIONS FAIL, THE VALUES OF THESE VARIABLES WILL BE ZERO.
+  
+   TNOW K
+
+ CREATING MUMODEL ROUTINE...
+ifort /nologo /nbs /w /4Yportlib /Gs /Ob1gyti /Qprec_div /Fewarfarin_PK_PRED.exe  FSUBS.f90 C:\nm730beta\ver7_20121107\ivf11\reg\nm\pnm_mpid.obj /include:C:\nm730beta\ver7_20121107\ivf11\reg\resource /include:C:\nm730beta\ver7_20121107\ivf11\reg\resource @link.lnk  C:\nm730beta\ver7_20121107\ivf11\reg\resource\PRGLOBALP.obj C:\nm730beta\ver7_20121107\ivf11\reg\pr\MUMODEL.obj C:\nm730beta\ver7_20121107\ivf11\reg\util\PARALLEL.obj C:\nm730beta\ver7_20121107\ivf11\reg\pr\prpnm.obj C:\nm730beta\ver7_20121107\ivf11\reg\nm\nonmem_recoded.obj C:\nm730beta\ver7_20121107\ivf11\reg\nm\nonmem.lib  C:\nm730beta\ver7_20121107\ivf11\reg\resource\resource.lib 
+[User] nhol004
+[CPU] SMAX3 x86 Family 6 Model 23 Stepping 10, GenuineIntel
+[status]
+Error=None 

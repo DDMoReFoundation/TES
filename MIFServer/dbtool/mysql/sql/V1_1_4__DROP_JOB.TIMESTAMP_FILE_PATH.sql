@@ -1,0 +1,1 @@
+alter table JOBS DROP TIMESTAMP_FILE_PATH;

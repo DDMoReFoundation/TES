@@ -1,0 +1,408 @@
+<?xml version="1.0"?>
+<project
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+	xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<modelVersion>4.0.0</modelVersion>
+	
+	<parent>
+		<artifactId>MangoInteroperabilityFramework</artifactId>
+		<groupId>com.mango</groupId>
+		<version>3.0.19-ddmore</version>
+	</parent>
+
+	<artifactId>MIFClient</artifactId>
+	<name>MIFClient</name>
+
+	<properties>
+		<mif.runtime.dir>${basedir}/../runtime</mif.runtime.dir>
+		<maven.bundle.plugin.version>2.3.7</maven.bundle.plugin.version>
+		<!-- default build properties location can be overridden by profiles -->
+		<mif.build.properties.file.location>${basedir}/../build-env.properties</mif.build.properties.file.location>
+	</properties>
+
+	<packaging>bundle</packaging>
+	<profiles>
+		<profile>
+			<activation>
+				<os>
+					<family>Windows</family>
+				</os>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<excludes>
+								<exclude>**/JSCH*.java</exclude>
+								<exclude>**/ShellBased*.java</exclude>
+								<exclude>**/Jsch*.java</exclude>
+								<exclude>**/InvokerHelper*.java</exclude>
+								<exclude>**/ResourceCopierImplTest.java</exclude>
+							</excludes>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+        
+		<profile>
+			<!-- This is default profile -->
+			<id>navws</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+		</profile>
+
+		<profile>
+			<!-- This is the profile run by cis -->
+			<id>jenkins</id>
+			<properties>
+				<mif.build.properties.file.location>${basedir}/../config/cis/build-env.properties</mif.build.properties.file.location>
+			</properties>
+		</profile>
+
+		<profile>
+			<id>obfuscate</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.felix</groupId>
+						<artifactId>maven-bundle-plugin</artifactId>
+						<version>${maven.bundle.plugin.version}</version>
+					</plugin>
+					<plugin>
+						<groupId>com.github.wvengen</groupId>
+						<artifactId>proguard-maven-plugin</artifactId>
+						<configuration>
+							<options>
+								<option>-renamesourcefileattribute SourceFile</option>
+								<option>-keepattributes **</option>
+								<option>-keep public class * {public protected *;}</option>
+								<option>-keep class **.DesEncrypterCLI$* {public *;}</option>
+								<option>-keepclassmembernames class **.DesEncrypterCLI {*;}</option>
+								<option>-keep class * implements
+									com.mango.mif.utils.encrypt.DesEncrypterCommand {*;}</option>
+								<option>-keepclassmembers enum * {*;}</option>
+							</options>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+	<dependencies>
+        <dependency>
+			<groupId>args4j</groupId>
+			<artifactId>args4j</artifactId>
+			<version>2.0.16</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<finalName>MIFClient</finalName>
+
+		<plugins>
+			<plugin>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+						<configuration>
+							<tasks>
+								<echo>Templates directory location: ${mif.runtime.dir}</echo>
+								<echo>Using properties file:
+									${mif.build.properties.file.location}</echo>
+							</tasks>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>properties-maven-plugin</artifactId>
+				<version>1.0-alpha-2</version>
+				<executions>
+					<execution>
+						<phase>process-test-resources</phase>
+						<goals>
+							<goal>read-project-properties</goal>
+						</goals>
+						<configuration>
+							<files>
+								<file>${mif.build.properties.file.location}</file>
+							</files>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+			</plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <mif.runtime.dir>${mif.runtime.dir}</mif.runtime.dir>
+                            <mif.build.properties.file.location>${mif.build.properties.file.location}</mif.build.properties.file.location>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <mif.runtime.dir>${mif.runtime.dir}</mif.runtime.dir>
+                        <mif.build.properties.file.location>${mif.build.properties.file.location}</mif.build.properties.file.location>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<configuration>
+					<links>
+						<link>http://docs.oracle.com/javase/6/docs/api/</link>
+					</links>
+					<source>1.6</source>
+					<show>public</show>
+					<doctitle>MIF Client API</doctitle>
+					<title>MIF Client API</title>
+					<bottom><![CDATA[Copyright notice]]></bottom>
+					<sourcepath>${basedir}/src/main/java/com/mango/mif</sourcepath>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+                            <includeScope>runtime</includeScope>
+							<outputDirectory>${project.build.directory}/MIFCLIclient/lib</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>2.4</version>
+
+				<executions>
+
+					<execution>
+						<id>copy-log4j-cli-client</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/MIFCLIclient/lib</outputDirectory>
+							<includeEmptyDirs>true</includeEmptyDirs>
+							<resources>
+								<resource>
+									<directory>${basedir}/src/test/resources</directory>
+									<filtering>true</filtering>
+									<includes>
+										<include>log4j.*</include>
+									</includes>
+								</resource>
+							</resources>
+							<!-- specify UTF-8, ISO-8859-1 or any other file encoding -->
+							<encoding>UTF-8</encoding>
+						</configuration>
+					</execution>
+
+					<execution>
+						<id>copy-desEncrypter-sh</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/MIFCLIclient</outputDirectory>
+							<includeEmptyDirs>true</includeEmptyDirs>
+							<resources>
+								<resource>
+									<directory>${basedir}/src/test/resources/exampleScript</directory>
+									<filtering>true</filtering>
+									<includes>
+										<include>**/*</include>
+									</includes>
+								</resource>
+							</resources>
+							<!-- specify UTF-8, ISO-8859-1 or any other file encoding -->
+							<encoding>UTF-8</encoding>
+						</configuration>
+					</execution>
+
+					<execution>
+						<id>copy-default-encryption-key</id>
+						<phase>process-resources</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${basedir}/src/main/resources/com/mango/mif/utils/encrypt</directory>
+									<includes>
+										<include>defaultDesKey.key</include>
+									</includes>
+								</resource>
+							</resources>
+							<encoding>UTF-8</encoding>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<inherited>true</inherited>
+				<configuration>
+					<archive>
+						<manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+					</archive>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<executions>
+					<execution>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>${basedir}/src/main/assembly/assembly.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+						<id>make-assembly</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+                    <execution>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>${basedir}/src/main/assembly/default-encryption-key.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                        <id>make-default-encryption-key-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<version>${maven.bundle.plugin.version}</version>
+				<extensions>true</extensions>
+				<!-- do not add an execution here as it will prevent eclipse from being 
+					able to enable m2e on this project (http://goo.gl/1AUXs) -->
+				<!-- the downside of this is that the manifest only gets OSGi'd at package 
+					time -->
+				<configuration>
+					<instructions>
+						<!-- don't export impl packages as they should only ever contain internal 
+							implementations -->
+						<Export-Package>!*.impl,${project.groupId}.*</Export-Package>
+						<Bundle-SymbolicName>${project.groupId}.mif.client</Bundle-SymbolicName>
+						<_include>-osgi.bnd</_include>
+					</instructions>
+				</configuration>
+			</plugin>
+		</plugins>
+
+		<!-- FP: add this to reconcile with m2e -->
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.apache.maven.plugins</groupId>
+										<artifactId>maven-dependency-plugin</artifactId>
+										<versionRange>[2.0,)</versionRange>
+										<goals>
+											<goal>copy-dependencies</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<execute />
+									</action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.codehaus.mojo</groupId>
+										<artifactId>properties-maven-plugin</artifactId>
+										<versionRange>[1.0-alpha-2,)</versionRange>
+										<goals>
+											<goal>read-project-properties</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<execute />
+									</action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.apache.maven.plugins</groupId>
+										<artifactId>maven-antrun-plugin</artifactId>
+										<versionRange>[1.3,)</versionRange>
+										<goals>
+											<goal>run</goal>
+										</goals>
+									</pluginExecutionFilter>
+									<action>
+										<execute>
+											<runOnIncremental>false</runOnIncremental>
+										</execute>
+									</action>
+								</pluginExecution>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.felix</groupId>
+                                        <artifactId>maven-bundle-plugin</artifactId>
+                                        <versionRange>[1.0.0,)</versionRange>
+                                        <goals>
+                                            <goal>manifest</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <execute />
+                                    </action>
+                                </pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+
+	</build>
+</project>

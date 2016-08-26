@@ -1,0 +1,1 @@
+This directory holds Templates specific to this MIF Plugin

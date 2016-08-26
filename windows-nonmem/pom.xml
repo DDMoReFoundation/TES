@@ -1,0 +1,150 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>mif-module-parent</artifactId>
+        <groupId>com.mango</groupId>
+        <version>3.0.19-ddmore</version>
+        <relativePath>../mif-module-parent</relativePath>
+    </parent>
+
+    <artifactId>windows-nonmem</artifactId>
+    <packaging>jar</packaging>
+    <name>windows-nonmem</name>
+    <url>http://www.mango-solutions.com</url>
+
+    <properties>
+        <!-- We must place the nmoutput2so onto classpath so it is possible to run Integration Tests directly from IDE 
+        but we can't place it into 'src' directory because it shouldn't be modified during build, instead we follow the '-gen' 
+        approach and we put the downloaded content into 'src-gen' directory-->
+        <scripts.directory>${basedir}/src-gen/main/resources/runtime/scripts/windows-nonmem</scripts.directory>
+		<!-- quick-fix for Maven 3.0.3 problems with handling HTTP 303 status responses that are used by SourceForge for load balancing/mirroring. actual
+		URL that should be used is: http://sourceforge.net/projects/ddmore/files/install/ddmore-tools/Connectors/tools/nmoutput2so/ -->
+        <nmoutput2so.release.url>http://netcologne.dl.sourceforge.net/project/ddmore/install/ddmore-tools/Connectors/tools/nmoutput2so/</nmoutput2so.release.url>
+        <nmoutput2so.archive>nmoutput2so-v4.5.27.zip</nmoutput2so.archive>
+        <nmoutput2so.archive.target>${project.build.directory}/nmoutput2so.zip</nmoutput2so.archive.target>
+    </properties>
+
+    <build>
+        <resources>
+            <resource><directory>${basedir}/src-gen/main/resources</directory></resource>
+            <resource><directory>${basedir}/src/main/resources</directory></resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>2.4.1</version>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${basedir}/src-gen</directory>
+                            <includes>
+                                <include>**</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>wagon-maven-plugin</artifactId>
+                <version>1.0</version>
+                <executions>
+                    <execution>
+                        <id>download-nmoutput2so</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>download-single</goal>
+                        </goals>
+                        <configuration>
+                            <url>${nmoutput2so.release.url}</url>
+                            <fromFile>${nmoutput2so.archive}</fromFile>
+                            <toFile>${nmoutput2so.archive.target}</toFile>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unzip-downloaded-binary-nmoutput2so</id>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <target>
+                                <echo message="Unzipping ${nmoutput2so.archive.target}" />
+                                <unzip src="${nmoutput2so.archive.target}"
+                                    dest="${scripts.directory}" />
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>properties-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- Pass connector properties for tests here -->
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <!-- Pass connector properties for tests here -->
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+        <pluginManagement>
+            <plugins>
+                <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>
+                                            org.codehaus.mojo
+                                        </groupId>
+                                        <artifactId>
+                                            wagon-maven-plugin
+                                        </artifactId>
+                                        <versionRange>
+                                            [1.0,)
+                                        </versionRange>
+                                        <goals>
+                                            <goal>download-single</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore></ignore>
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archetype-descriptor xmlns="http://maven.apache.org/plugins/maven-archetype-plugin/archetype/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/plugins/maven-archetype-plugin/archetype/1.0.0 http://maven.apache.org/xsd/archetype-1.0.0.xsd"
+  name="mif-module" partial="false">
+  <fileSets>
+    <fileSet filtered="true">
+        <directory>src/test/java</directory>
+    </fileSet>
+    <fileSet filtered="true">
+        <directory>src/test/resources</directory>
+    </fileSet>
+    <fileSet filtered="true">
+        <directory>src/main/java</directory>
+    </fileSet>
+    <fileSet filtered="true">
+        <directory>src/main/resources/runtime</directory>
+    </fileSet>
+    <fileSet filtered="false">
+        <directory>src/main/resources/install</directory>
+    </fileSet>
+    <fileSet filtered="false">
+        <directory>src/main/assembly</directory>
+    </fileSet>
+  </fileSets>
+</archetype-descriptor>

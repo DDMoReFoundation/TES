@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee"
+	xmlns:jms="http://www.springframework.org/schema/jms" xmlns:oxm="http://www.springframework.org/schema/oxm"
+	xmlns:p="http://www.springframework.org/schema/p" 
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+    http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd
+    http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    
+    <bean id="connectorsRegistry"  class="com.mango.mif.core.services.DiscoveringConnectorsRegistry">     
+    </bean> 
+    
+    <bean class="com.mango.mif.connector.ConnectorDescriptor">
+        <constructor-arg ref="connector1"/>
+        
+        <constructor-arg>
+        		<list>
+        			<value>executionType1</value>
+        			<value>executionType2</value>
+        		</list>
+        </constructor-arg>
+    </bean>
+    
+    <bean class="com.mango.mif.connector.ConnectorDescriptor">
+        <constructor-arg ref="connector2"/>
+        <constructor-arg><value>executionType3</value>
+        </constructor-arg>
+    </bean>
+    
+    <bean id="connector1" class="com.mango.mif.core.services.DiscoveringConnectorsRegistryIT" factory-method="createMockConnector">
+	    <constructor-arg value="connector1" />
+	</bean>
+    
+    <bean id="connector2" class="com.mango.mif.core.services.DiscoveringConnectorsRegistryIT" factory-method="createMockConnector">
+	    <constructor-arg value="connector2" />
+	</bean>
+</beans>
