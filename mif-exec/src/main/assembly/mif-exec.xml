@@ -15,6 +15,9 @@
             <includes>
                 <include>**/*</include>
             </includes>
+			<excludes>
+				<exclude>**/.gitkeep</exclude>
+			</excludes>
         </fileSet>
     </fileSets>
     <moduleSets>
